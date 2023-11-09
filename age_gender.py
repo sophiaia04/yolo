@@ -3,6 +3,8 @@ import webbrowser
 import cv2
 import numpy as np
 from PIL import Image
+from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoTransformerBase
+import av
 
 # Hide Streamlit's default menu and footer
 hide_streamlit_style = """
@@ -39,16 +41,6 @@ st.image("logo.png")  # Display a logo image
 st.title("Play with AI Models")
 st.write("Play with some AI models that leverage GPU computation, all running on the below server!")
 
-# Button to start Age and Gender Estimation
-if st.button("Age and Gender Estimation", use_container_width=True):
-    st.title("Webcam Live Feed")
-    run = True
-
-
-from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoTransformerBase
-import av
-import cv2
-import numpy as np
 
 # Define RTC configuration to ensure compatibility with different network conditions
 RTC_CONFIGURATION = RTCConfiguration(
@@ -67,12 +59,9 @@ class VideoTransformer(VideoTransformerBase):
         return av.VideoFrame.from_ndarray(img, format="bgr24")
 
 # Streamlit UI element to start the webcam and display the processed video
-if st.button("Age and Gender Estimation"):
+if st.button("Age and Gender Estimation", use_container_width=True):
     # Use webrtc_streamer to process video stream with the VideoTransformer
     webrtc_streamer(key="example", video_processor_factory=VideoTransformer, rtc_configuration=RTC_CONFIGURATION)
-
-else:
-    st.write('Stopped')
 
 # Button to stop the webcam feed
 if st.button("Stop", use_container_width=True):
