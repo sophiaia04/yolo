@@ -13,7 +13,19 @@ def process_frame(frame):
     # Your existing OpenCV processing logic goes here, for now it will just pass the frames through
     return img
 
-webrtc_ctx = webrtc_streamer(key="example", video_frame_callback=process_frame)
+
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+import av
+
+class VideoProcessor(VideoTransformerBase):
+    def recv(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        # Your existing OpenCV processing logic would go here.
+        # For now, we'll just return the original image.
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
+
+# Using webrtc_streamer to process video stream
+webrtc_streamer(key="example", video_processor_factory=VideoProcessor)
 
 if webrtc_ctx.video_transformer:
     # You can access the video frame here as numpy array.
