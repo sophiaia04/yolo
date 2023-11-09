@@ -4,6 +4,21 @@ import cv2
 import numpy as np
 from PIL import Image
 
+
+import av
+from streamlit_webrtc import webrtc_streamer
+
+def process_frame(frame):
+    img = frame.to_ndarray(format="bgr24")
+    # Your existing OpenCV processing logic goes here, for now it will just pass the frames through
+    return img
+
+webrtc_ctx = webrtc_streamer(key="example", video_frame_callback=process_frame)
+
+if webrtc_ctx.video_transformer:
+    # You can access the video frame here as numpy array.
+    frame = webrtc_ctx.video_transformer.get_transformed_frame()
+
 # Hide Streamlit's default menu and footer
 hide_streamlit_style = """
 <style>
@@ -117,7 +132,7 @@ if st.button("Age and Gender Estimation", use_container_width=True):
         st.write('Stopped')
 
 # Button to stop the webcam feed
-if st.button("Stop"):
+if st.button("Stop", use_container_width=True):
     run = False
 
 
