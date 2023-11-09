@@ -117,7 +117,7 @@ if st.button("Age and Gender Estimation", use_container_width=True):
         st.write('Stopped')
 
 # Button to stop the webcam feed
-if st.button("Stop"):
+if st.button("Stop", use_container_width=True):
     run = False
 
 
