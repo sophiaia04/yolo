@@ -1,35 +1,8 @@
 import streamlit as st
-import webbrowser
+from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoTransformerBase
+import av
 import cv2
 import numpy as np
-from PIL import Image
-
-
-import av
-from streamlit_webrtc import webrtc_streamer
-
-def process_frame(frame):
-    img = frame.to_ndarray(format="bgr24")
-    # Your existing OpenCV processing logic goes here, for now it will just pass the frames through
-    return img
-
-
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
-import av
-
-class VideoProcessor(VideoTransformerBase):
-    def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        # Your existing OpenCV processing logic would go here.
-        # For now, we'll just return the original image.
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-# Using webrtc_streamer to process video stream
-webrtc_streamer(key="example", video_processor_factory=VideoProcessor)
-
-if webrtc_ctx.video_transformer:
-    # You can access the video frame here as numpy array.
-    frame = webrtc_ctx.video_transformer.get_transformed_frame()
 
 # Hide Streamlit's default menu and footer
 hide_streamlit_style = """
@@ -40,12 +13,16 @@ footer {visibility: hidden;}
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
+# Define RTC configuration to ensure compatibility with different network conditions
+RTC_CONFIGURATION = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
+
 # Function to get the face bounding boxes using OpenCV DNN
 def get_face_box(net, frame, conf_threshold=0.7):
-    opencv_dnn_frame = frame.copy()
-    frame_height = opencv_dnn_frame.shape[0]
-    frame_width = opencv_dnn_frame.shape[1]
-    blob_img = cv2.dnn.blobFromImage(opencv_dnn_frame, 1.0, (300, 300), [104, 117, 123], True, False)
+    frame_height = frame.shape[0]
+    frame_width = frame.shape[1]
+    blob_img = cv2.dnn.blobFromImage(frame, 1.0, (300, 300), [104, 117, 123], True, False)
 
     net.setInput(blob_img)
     detections = net.forward()
@@ -58,102 +35,58 @@ def get_face_box(net, frame, conf_threshold=0.7):
             x2 = int(detections[0, 0, i, 5] * frame_width)
             y2 = int(detections[0, 0, i, 6] * frame_height)
             b_boxes_detect.append([x1, y1, x2, y2])
-            cv2.rectangle(opencv_dnn_frame, (x1, y1), (x2, y2), (0, 255, 0), int(round(frame_height / 150)), 8)
-    return opencv_dnn_frame, b_boxes_detect
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), int(round(frame_height / 150)), 8)
+    return frame, b_boxes_detect
+
+# Paths to pre-trained models
+face_txt_path = "opencv_face_detector.pbtxt"
+face_model_path = "opencv_face_detector_uint8.pb"
+age_txt_path = "age_deploy.prototxt"
+age_model_path = "age_net.caffemodel"
+gender_txt_path = "gender_deploy.prototxt"
+gender_model_path = "gender_net.caffemodel"
+
+# Load pre-trained models
+age_net = cv2.dnn.readNet(age_model_path, age_txt_path)
+gender_net = cv2.dnn.readNet(gender_model_path, gender_txt_path)
+face_net = cv2.dnn.readNet(face_model_path, face_txt_path)
+
+# Constants and class labels for age and gender
+MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+age_classes = ['(0-2)', '(4-6)', '(8-12)', '(15-20)',
+               '(25-32)', '(38-43)', '(48-53)', '(60-100)']
+gender_classes = ['Male', 'Female']
 
 # Streamlit UI elements and configuration
 st.image("logo.png")  # Display a logo image
 st.title("Play with AI Models")
 st.write("Play with some AI models that leverage GPU computation, all running on the below server!")
 
-# Button to start Age and Gender Estimation
-if st.button("Age and Gender Estimation", use_container_width=True):
-    st.title("Webcam Live Feed")
-    run = True
-    FRAME_WINDOW = st.image([])
-    camera = cv2.VideoCapture(0)
+class VideoTransformer(VideoTransformerBase):
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
 
-    # Check if the webcam is working
-    if not camera.isOpened():
-        st.error("Error: Webcam not found or not accessible. Please make sure the webcam is connected and permissions are granted.")
-        run = False  # Stop if the webcam is not accessible
-    else:
-        st.write('Webcam worked')
-
-    # Paths to pre-trained models
-    face_txt_path = "opencv_face_detector.pbtxt"
-    face_model_path = "opencv_face_detector_uint8.pb"
-    age_txt_path = "age_deploy.prototxt"
-    age_model_path = "age_net.caffemodel"
-    gender_txt_path = "gender_deploy.prototxt"
-    gender_model_path = "gender_net.caffemodel"
-
-    # Constants and class labels for age and gender
-    MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
-    age_classes = ['Age: ~1-2', 'Age: ~3-5', 'Age: ~6-14', 'Age: ~16-22',
-                   'Age: ~25-30', 'Age: ~32-40', 'Age: ~45-50', 'Age: age is greater than 60']
-    gender_classes = ['Gender: Male', 'Gender: Female']
-
-    # Load pre-trained models
-    age_net = cv2.dnn.readNet(age_model_path, age_txt_path)
-    gender_net = cv2.dnn.readNet(gender_model_path, gender_txt_path)
-    face_net = cv2.dnn.readNet(face_model_path, face_txt_path)
-
-    while run:
-        print('run')
-        _, frame = camera.read()
-        frame, b_boxes = get_face_box(face_net, frame)
-        if not b_boxes:
-            st.write("No face Detected, Checking the next frame")
-        else:
-            st.write(f"Detected {len(b_boxes)} face(s)")
-
+        # Apply face detection
+        img, b_boxes = get_face_box(face_net, img)
+        
+        # Apply age and gender estimation
         for bbox in b_boxes:
-            face = frame[max(0, bbox[1]): min(bbox[3], frame.shape[0] - 1),
-                         max(0, bbox[0]): min(bbox[2], frame.shape[1] - 1)]
-
-            blob = cv2.dnn.blobFromImage(
-                face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+            face = img[max(0, bbox[1]):min(bbox[3], img.shape[0]-1), 
+                       max(0, bbox[0]):min(bbox[2], img.shape[1]-1)]
+            
+            blob = cv2.dnn.blobFromImage(face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
             gender_net.setInput(blob)
-            gender_pred_list = gender_net.forward()
-            gender = gender_classes[gender_pred_list[0].argmax()]
-            st.write(f"Gender: {gender}, confidence = {gender_pred_list[0].max() * 100}%")
-
+            gender_preds = gender_net.forward()
+            gender = gender_classes[gender_preds[0].argmax()]
+            
             age_net.setInput(blob)
-            age_pred_list = age_net.forward()
-            age = age_classes[age_pred_list[0].argmax()]
-            st.write(f"Age: {age}, confidence = {age_pred_list[0].max() * 100}%")
-
+            age_preds = age_net.forward()
+            age = age_classes[age_preds[0].argmax()]
+            
             label = f"{gender}, {age}"
-            cv2.putText(
-                frame,
-                label,
-                (bbox[0],
-                 bbox[1] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (0,
-                 255,
-                 255),
-                2,
-                cv2.LINE_AA)
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        FRAME_WINDOW.image(frame)
-        break
-    else:
-        st.write('Stopped')
+            cv2.putText(img, label, (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
 
-# Button to stop the webcam feed
-if st.button("Stop", use_container_width=True):
-    run = False
+        return av.VideoFrame.from_ndarray(img, format="bgr24")
 
-
-# More Info section with buttons
-st.write("More Info")
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Check out our website!", use_container_width=True):
-        webbrowser.open_new_tab("https://lac2.org")
-with col2:
-    if st.button("Book an appointment with our AI Hub Manager!", use_container_width=True):
-        webbrowser.open_new_tab("https://www.typecalendar.com/wp-content/uploads/2022/12/December-2023-Calendar.jpg")
+# Using webrtc_streamer to process video stream
+webrtc_streamer
