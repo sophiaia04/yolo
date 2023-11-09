@@ -71,8 +71,8 @@ if st.button("Age and Gender Estimation"):
     # Use webrtc_streamer to process video stream with the VideoTransformer
     webrtc_streamer(key="example", video_processor_factory=VideoTransformer, rtc_configuration=RTC_CONFIGURATION)
 
-    else:
-        st.write('Stopped')
+else:
+    st.write('Stopped')
 
 # Button to stop the webcam feed
 if st.button("Stop", use_container_width=True):
