@@ -1,5 +1,6 @@
 import streamlit as st
-import webbrowser
+from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoTransformerBase
+import av
 import cv2
 import numpy as np
 from PIL import Image
@@ -12,6 +13,11 @@ footer {visibility: hidden;}
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Define RTC configuration for ICE servers (STUN/TURN)
+RTC_CONFIGURATION = RTCConfiguration(
+    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
+)
 
 # Function to get the face bounding boxes using OpenCV DNN
 def get_face_box(net, frame, conf_threshold=0.7):
@@ -39,44 +45,71 @@ st.image("logo.png")  # Display a logo image
 st.title("Play with AI Models")
 st.write("Play with some AI models that leverage GPU computation, all running on the below server!")
 
-# Button to start Age and Gender Estimation
-if st.button("Age and Gender Estimation", use_container_width=True):
-    st.title("Webcam Live Feed")
-    run = True
+
+# Paths to pre-trained models
+face_txt_path = "opencv_face_detector.pbtxt"
+face_model_path = "opencv_face_detector_uint8.pb"
+age_txt_path = "age_deploy.prototxt"
+age_model_path = "age_net.caffemodel"
+gender_txt_path = "gender_deploy.prototxt"
+gender_model_path = "gender_net.caffemodel"
+
+# Constants and class labels for age and gender
+MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+age_classes = ['Age: ~1-2', 'Age: ~3-5', 'Age: ~6-14', 'Age: ~16-22',
+            'Age: ~25-30', 'Age: ~32-40', 'Age: ~45-50', 'Age: age is greater than 60']
+gender_classes = ['Gender: Male', 'Gender: Female']
+
+# Load pre-trained models
+face_net = cv2.dnn.readNetFromTensorflow(face_model_path, face_txt_path)
+age_net = cv2.dnn.readNet(age_model_path, age_txt_path)
+gender_net = cv2.dnn.readNet(gender_model_path, gender_txt_path)
 
 
-from streamlit_webrtc import webrtc_streamer, RTCConfiguration, VideoTransformerBase
-import av
-import cv2
-import numpy as np
-
-# Define RTC configuration to ensure compatibility with different network conditions
-RTC_CONFIGURATION = RTCConfiguration(
-    {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}  # STUN server
-)
-
+# Define the VideoTransformer class
 class VideoTransformer(VideoTransformerBase):
-    def transform(self, frame):
+    def recv(self, frame):
         img = frame.to_ndarray(format="bgr24")
 
-        # Apply face detection and age, gender estimation
-        # Insert the user's existing logic here
-        # ...
+        # Face detection
+        processed_frame, b_boxes = get_face_box(face_net, img)
 
-        # Then return the result frame
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
+        for bbox in b_boxes:
+            # Extracting face ROI
+            face = processed_frame[max(0, bbox[1]):min(bbox[3], processed_frame.shape[0]-1), 
+                                   max(0, bbox[0]):min(bbox[2], processed_frame.shape[1]-1)]
 
-# Streamlit UI element to start the webcam and display the processed video
-if st.button("Age and Gender Estimation"):
-    # Use webrtc_streamer to process video stream with the VideoTransformer
-    webrtc_streamer(key="example", video_processor_factory=VideoTransformer, rtc_configuration=RTC_CONFIGURATION)
+            # Prepare the face ROI for age and gender prediction
+            blob = cv2.dnn.blobFromImage(face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
 
-    else:
-        st.write('Stopped')
+            # Age prediction
+            age_net.setInput(blob)
+            age_preds = age_net.forward()
+            age = age_classes[age_preds[0].argmax()]
 
-# Button to stop the webcam feed
-if st.button("Stop", use_container_width=True):
-    run = False
+            # Gender prediction
+            gender_net.setInput(blob)
+            gender_preds = gender_net.forward()
+            gender = gender_classes[gender_preds[0].argmax()]
+
+            # Annotate the processed frame with age and gender information
+            label = f"{gender}, {age}"
+            cv2.putText(processed_frame, label, (bbox[0], bbox[1] - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2, cv2.LINE_AA)
+
+        # Convert the color from BGR to RGB
+        img_rgb = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2RGB)
+
+        return av.VideoFrame.from_ndarray(img_rgb, format="bgr24")
+
+
+
+# Button to start Age and Gender Estimation
+if st.button("Age and Gender Estimation", use_container_width=True):
+    # Use webrtc_streamer to process video stream
+    webrtc_streamer(key="age_gender_estimation", 
+                    video_processor_factory=VideoTransformer, 
+                    rtc_configuration=RTC_CONFIGURATION)
 
 
 # More Info section with buttons
