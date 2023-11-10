@@ -45,6 +45,15 @@ st.image("logo.png")  # Display a logo image
 st.title("Play with AI Models")
 st.write("Play with some AI models that leverage GPU computation, all running on the below server!")
 
+<<<<<<< HEAD
+=======
+# Button to start Age and Gender Estimation
+if st.button("Age and Gender Estimation", use_container_width=True):
+    st.title("Webcam Live Feed")
+    run = True
+    FRAME_WINDOW = st.image([])
+    camera = cv2.VideoCapture(1)
+>>>>>>> 7fd7130cedf023145cbb0c0fd491b28e3967178c
 
 # Paths to pre-trained models
 face_txt_path = "opencv_face_detector.pbtxt"
