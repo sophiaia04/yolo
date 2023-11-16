@@ -4,6 +4,7 @@ import av
 import cv2
 import numpy as np
 from PIL import Image
+import yolo_opencv  # Make sure this is correctly pointing to your modified script
 
 # Hide Streamlit's default menu and footer
 hide_streamlit_style = """
@@ -43,17 +44,8 @@ def get_face_box(net, frame, conf_threshold=0.7):
 # Streamlit UI elements and configuration
 st.image("logo.png")  # Display a logo image
 st.title("Play with AI Models")
-st.write("Play with some AI models that leverage GPU computation, all running on the below server!")
-
-<<<<<<< HEAD
-=======
-# Button to start Age and Gender Estimation
-if st.button("Age and Gender Estimation", use_container_width=True):
-    st.title("Webcam Live Feed")
-    run = True
-    FRAME_WINDOW = st.image([])
-    camera = cv2.VideoCapture(1)
->>>>>>> 7fd7130cedf023145cbb0c0fd491b28e3967178c
+st.write("Play with some AI models that leverage GPU computation")
+st.write("Age and Gender Estimation: Click on Start and enable camera to run")
 
 # Paths to pre-trained models
 face_txt_path = "opencv_face_detector.pbtxt"
@@ -113,20 +105,47 @@ class VideoTransformer(VideoTransformerBase):
 
 
 
-# Button to start Age and Gender Estimation
-if st.button("Age and Gender Estimation", use_container_width=True):
-    # Use webrtc_streamer to process video stream
-    webrtc_streamer(key="age_gender_estimation", 
-                    video_processor_factory=VideoTransformer, 
-                    rtc_configuration=RTC_CONFIGURATION)
+# Use webrtc_streamer to process video stream
+webrtc_streamer(key="age_gender_estimation", 
+                video_processor_factory=VideoTransformer, 
+                rtc_configuration=RTC_CONFIGURATION)
+
+
+
+#object detection
+st.title('')
+st.write("Object Detection: Click on Browse files to upload an image with objects or animals")
+
+uploaded_file = st.file_uploader("Choose an image...", type=['jpg', 'jpeg'])
+
+if uploaded_file is not None:
+    # Save the uploaded file to a temporary file
+    with open("temp.jpg", "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # Call the object detection function from yolo_opencv
+    detected_image = yolo_opencv.detect_objects("temp.jpg")
+    
+    # Display the detected image
+    st.image(detected_image, caption='Processed Image', use_column_width=True)
+
 
 
 # More Info section with buttons
+st.title('')
 st.write("More Info")
 col1, col2 = st.columns(2)
+
 with col1:
-    if st.button("Check out our website!", use_container_width=True):
-        webbrowser.open_new_tab("https://lac2.org")
+    st.markdown("""
+        <a href="https://lac2.org" target="_blank">
+            <button style='width:100%; height:40px;'>Check out our website!</button>
+        </a>
+        """, unsafe_allow_html=True)
 with col2:
-    if st.button("Book an appointment with our AI Hub Manager!", use_container_width=True):
-        webbrowser.open_new_tab("https://www.typecalendar.com/wp-content/uploads/2022/12/December-2023-Calendar.jpg")
+    st.markdown("""
+        <a href="https://www.typecalendar.com/wp-content/uploads/2022/12/December-2023-Calendar.jpg" target="_blank">
+            <button style='width:100%; height:40px;'>Book an appointment with our AI Hub Manager!</button>
+        </a>
+        """, unsafe_allow_html=True)
+

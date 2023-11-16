@@ -120,6 +120,8 @@ if st.button("Age and Gender Estimation", use_container_width=True):
 if st.button("Stop", use_container_width=True):
     run = False
 
+st.button("Pose Estimation", use_container_width=True)
+st.button("etc", use_container_width=True)
 
 # More Info section with buttons
 st.write("More Info")
