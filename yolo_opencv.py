@@ -5,9 +5,10 @@ import numpy as np
 # Define the detect_objects function
 def detect_objects(image_path):
     # Hardcoded paths for YOLO config, weights, and classes files
-    config_path = 'C:\\Users\\sophi\\OneDrive\\Dokumente\\Lacs2\\Recognition\\object-detection-opencv\\yolov3.cfg'
-    weights_path = 'C:\\Users\\sophi\\OneDrive\\Dokumente\\Lacs2\\Recognition\\object-detection-opencv\\yolov3.weights'
-    classes_path = 'C:\\Users\\sophi\\OneDrive\\Dokumente\\Lacs2\\Recognition\\object-detection-opencv\\yolov3.txt'
+    script_dir = os.path.dirname(__file__)
+    config_path = os.path.join(script_dir, 'yolov3.cfg')
+    weights_path = os.path.join(script_dir, 'yolov3.weights')
+    classes_path = os.path.join(script_dir, 'yolov3.txt')
     image = cv2.imread(image_path)
     Width = image.shape[1]
     Height = image.shape[0]
