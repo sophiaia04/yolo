@@ -75,7 +75,7 @@ def draw_prediction(img, class_id, confidence, x, y, x_plus_w, y_plus_h, classes
     label = str(classes[class_id])
     color = COLORS[class_id]
     cv2.rectangle(img, (x,y), (x_plus_w,y_plus_h), color, 2)
-    cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 1, color, 3)
+    cv2.putText(img, label, (x-10,y-10), cv2.FONT_HERSHEY_SIMPLEX, 4, color, 4)
 
 # Main execution
 if __name__ == "__main__":
